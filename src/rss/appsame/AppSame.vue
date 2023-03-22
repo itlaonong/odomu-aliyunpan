@@ -50,7 +50,7 @@ const handleReset = () => {
 watch(userStore.$state, handleReset)
 
 const RefreshTree = () => {
-  
+
   let showData: FileNodeData[] = []
   const entries = ScanPanData.SameDirMap.entries()
   for (let i = 0, maxi = ScanPanData.SameDirMap.size; i < maxi; i++) {
@@ -73,7 +73,7 @@ const RefreshTree = () => {
 const handleCheck = (file_id: string) => {
   if (checkedKeys.has(file_id)) checkedKeys.delete(file_id)
   else checkedKeys.add(file_id)
-  treeData.value = treeData.value.concat() 
+  treeData.value = treeData.value.concat()
   checkedCount.value = checkedKeys.size
   let size = 0
   treeData.value.map((t) => {
@@ -85,7 +85,20 @@ const handleCheck = (file_id: string) => {
   })
   checkedSize.value = size
 }
-
+const smartSelect = ()=>{
+  checkedKeys.clear()
+  checkedCount.value = 0
+  checkedSize.value = 0
+  treeData.value.forEach((item) => {
+    let count = 0;
+    item.files.forEach((file)=>{
+      if(count > 0){
+        handleCheck(file.file_id)
+      }
+      count++
+    })
+  })
+}
 const handleDelete = () => {
   const user = UserDAL.GetUserToken(userStore.user_id)
   if (!user || !user.user_id) {
@@ -119,7 +132,7 @@ const handleScan = () => {
 
   const refresh = () => {
     if (scanLoading.value) {
-      
+
       RefreshTree()
       setTimeout(refresh, 3000)
     }
@@ -128,7 +141,7 @@ const handleScan = () => {
 
   LoadScanDir(user.user_id, user.default_drive_id, totalDirCount, Processing, ScanPanData)
     .then(() => {
-      
+
       return GetSameFile(user.user_id, ScanPanData, Processing, scanCount, totalFileCount, scanType.value)
     })
     .catch((err: any) => {
@@ -136,7 +149,7 @@ const handleScan = () => {
       return false
     })
     .then((data) => {
-      
+
       scanLoading.value = false
       RefreshTree()
       scanLoaded.value = data
@@ -193,6 +206,7 @@ const scanType = ref('all')
           <a-option value="zip">压缩包</a-option>
           <a-option value="others">其他</a-option>
         </a-select>
+        <a-button v-if="scanLoaded" type="primary" style='margin-right: 12px' size="small" tabindex="-1" title="" @click="smartSelect">智能选择</a-button>
         <a-button v-if="scanLoaded" type="primary" size="small" tabindex="-1" status="danger" :loading="delLoading" title="把选中的文件放入回收站" @click="handleDelete">删除选中</a-button>
         <a-button v-else type="primary" size="small" tabindex="-1" :loading="scanLoading" @click="handleScan">加载列表</a-button>
       </a-row>
