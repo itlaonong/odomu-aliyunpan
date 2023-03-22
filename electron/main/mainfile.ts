@@ -5,6 +5,7 @@ const DEBUGGING = !app.isPackaged
 
 let NewCopyed = false
 let NewSaved = false
+
 export function getAsarPath(fileName: string) {
   if (DEBUGGING) {
     const basePath = path.resolve(app.getAppPath())
@@ -32,46 +33,45 @@ export function getAsarPath(fileName: string) {
 }
 
 export function getResourcesPath(fileName: string) {
-  if (DEBUGGING) {
-    const basePath = app.getAppPath()
-    return path.join(basePath, fileName)
-  } else {
-    const basePath = path.resolve(app.getAppPath(), '..')
-
-    if (fileName == 'app.ico' && process.platform !== 'win32') {
-      fileName = 'app.png'
-    }
-
-    if (fileName == 'app.ico') {
-      try {
-        const png = path.join(basePath, fileName)
-        if (!existsSync(png)) {
-          const bufferData = Buffer.from(appicon, 'base64')
-          writeFileSync(png, bufferData)
-        }
-      } catch {}
-    }
-
-    if (fileName == 'app.png') {
-      try {
-        const png = path.join(basePath, fileName)
-        if (!existsSync(png)) {
-          const bufferData = Buffer.from(apppng, 'base64')
-          writeFileSync(png, bufferData)
-        }
-      } catch {}
-    }
-
-    return path.join(basePath, fileName)
+  let basePath =  path.resolve(app.getAppPath(), '..')
+  if (DEBUGGING) basePath = path.resolve(app.getAppPath(), '.')
+  if (fileName == 'app.ico' && process.platform !== 'win32') {
+    fileName = 'app.png'
   }
+  if (fileName == 'app.ico') {
+    try {
+      const png = path.join(basePath, fileName)
+      if (!existsSync(png)) {
+        const bufferData = Buffer.from(appicon, 'base64')
+        writeFileSync(png, bufferData)
+      }
+    } catch {}
+  }
+
+  if (fileName == 'app.png') {
+    try {
+      const png = path.join(basePath, fileName)
+      if (!existsSync(png)) {
+        const bufferData = Buffer.from(apppng, 'base64')
+        writeFileSync(png, bufferData)
+      }
+    } catch {}
+  }
+  return path.join(basePath, fileName)
 }
-export function getCrxPath() {
+
+export function getStaticPath(fileName: string) {
+  let basePath = ''
   if (DEBUGGING) {
-    const basePath = path.resolve(app.getAppPath(), '.')
-    return path.join(basePath, 'crx')
+    basePath = path.resolve(app.getAppPath(), './static')
   } else {
-    let basePath = path.resolve(app.getAppPath(), '..')
-    basePath = path.join(basePath, 'crx')
+    basePath = path.resolve(app.getAppPath(), '..')
+  }
+  return path.join(basePath, fileName)
+}
+
+export function getCrxPath() {
+    let basePath = getStaticPath('crx')
     try {
       if (!existsSync(basePath)) mkdirSync(basePath)
     } catch {}
@@ -87,9 +87,7 @@ export function getCrxPath() {
       const devtoolsjs = path.join(basePath, 'devtools.js')
       if (!existsSync(devtoolsjs)) writeFileSync(devtoolsjs, crxdevtoolsjs, 'utf-8')
     } catch {}
-
     return basePath
-  }
 }
 
 export function getUserDataPath(fileName: string) {

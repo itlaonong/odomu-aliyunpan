@@ -78,8 +78,21 @@ export default class UserDAL {
         const expire_time = new Date(token.expire_time).getTime()
 
         if (expire_time - dateNow < 1800000) await AliUser.ApiTokenRefreshAccount(token, false)
+
       } catch (err: any) {
         DebugLog.mSaveDanger('aRefreshAllUserToken', err)
+      }
+    }
+  }
+
+  static async aRefreshAllUserSession() {
+    const tokenList = await DB.getUserAll()
+    for (let i = 0, maxi = tokenList.length; i < maxi; i++) {
+      const token = tokenList[i]
+      try {
+        await AliUser.ApiSessionRefreshAccount(token,  false)
+      } catch (err: any) {
+        DebugLog.mSaveDanger('aRefreshAllUserSession', err)
       }
     }
   }
@@ -115,9 +128,8 @@ export default class UserDAL {
       vipname: '',
       vipexpire: '',
       pic_drive_id: '',
-      deviceId: '',
-      signature: '',
-      nonce: 0
+      device_id: '',
+      signature: ''
     }
   }
 
@@ -164,8 +176,14 @@ export default class UserDAL {
     UserTokenMap.set(token.user_id, token)
 
     // 加载用户信息
-    await Promise.all([AliUser.ApiUserInfo(token), AliUser.ApiUserPic(token), AliUser.ApiUserVip(token)])
-
+    await Promise.all([
+        AliUser.ApiUserInfo(token),
+        AliUser.ApiUserPic(token),
+        AliUser.ApiUserVip(token)
+    ])
+    // 刷新session
+    await AliUser.ApiSessionRefreshAccount(token, true)
+    // 保存登录信息
     useUserStore().userLogin(token.user_id)
     await DB.saveValueString('uiDefaultUser', token.user_id)
     UserDAL.SaveUserToken(token)
@@ -254,6 +272,7 @@ export default class UserDAL {
 
     if (!force || time < 600) {
       await Promise.all([AliUser.ApiUserInfo(token), AliUser.ApiUserPic(token), AliUser.ApiUserVip(token)])
+      UserDAL.SaveUserToken(token)
       return true
     } else {
       // 刷新token和session
@@ -263,13 +282,16 @@ export default class UserDAL {
       // 刷新用户信息
       await Promise.all([AliUser.ApiUserInfo(token), AliUser.ApiUserPic(token), AliUser.ApiUserVip(token)])
       useUserStore().userLogin(token.user_id)
+      UserDAL.SaveUserToken(token)
       return true
     }
   }
 
-
-  static CurrUserToken(): string {
-
-    return ''
+  static async UserSign(user_id: string): Promise<boolean> {
+    const token = UserDAL.GetUserToken(user_id)
+    if (!token || !token.access_token) {
+      return false
+    }
+    return AliUser.ApiUserSign(token)
   }
 }

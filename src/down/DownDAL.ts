@@ -1,7 +1,7 @@
 import { IAliGetFileModel } from '../aliapi/alimodels'
 import path from 'path'
 import TreeStore from '../store/treestore'
-import { useUserStore, useSettingStore, useDownedStore, useDowningStore } from '../store'
+import { useUserStore, useSettingStore, useDownedStore, useDowningStore, useFootStore } from '../store'
 import { ClearFileName } from '../utils/filehelper'
 import DB from '../utils/db'
 import {
@@ -12,7 +12,7 @@ import {
   FormateAriaError,
   IsAria2cRemote
 } from '../utils/aria2c'
-import { humanSize } from '../utils/format'
+import { humanSize, humanSizeSpeed } from '../utils/format'
 
 export interface IStateDownFile {
   DownID: string
@@ -83,17 +83,9 @@ export default class DownDAL {
   /**
    * 从DB中加载数据
    */
-  static async aLoadDownedFromDB() {
-    const downedStore = useDownedStore()
-    downedStore.ListDataRaw = await DB.getDownedAll()
-    downedStore.mRefreshListDataShow(true)
-  }
-
-  /**
-   * 从DB中加载数据
-   */
-  static async aLoadFromDB() {
+  static async aReloadDowning () {
     const downingStore = useDowningStore()
+    if(downingStore.ListLoading) return
     downingStore.ListLoading = true
     const stateDownFiles = await DB.getDowningAll()
     // 首次从DB中加载数据，如果上次意外停止则重新开始，如果手动暂停则保持
@@ -116,7 +108,22 @@ export default class DownDAL {
     downingStore.ListDataRaw = stateDownFiles
     downingStore.mRefreshListDataShow(true)
     downingStore.ListLoading = false
-    this.aLoadDownedFromDB().then(r => {})
+  }
+
+  static async aReloadDowned () {
+    const downedStore = useDownedStore()
+    if(downedStore.ListLoading) return
+    downedStore.ListLoading = true
+    const max = useSettingStore().debugDownedListMax
+    const showlist = await DB.getDownedByTop(max)
+    const count = await DB.getDownedTaskCount()
+    downedStore.aLoadListData(showlist, count)
+    downedStore.ListLoading = false
+  }
+
+  static async aClearDowned() {
+    const max = useSettingStore().debugDownedListMax
+    return await DB.deleteDownedOutCount(max)
   }
 
   /**
@@ -446,11 +453,9 @@ export default class DownDAL {
 
     if (saveList.length > 0) DB.saveDownings(JSON.parse(JSON.stringify(saveList)))
     if (dellist.length > 0) AriaDeleteList(dellist).then()
-    /*if (hasSpeed > 0) this.totalDownSpeed = format.humanStorageSize(hasSpeed) + '/s';
-    else this.totalDownSpeed = '';*/
-
     if (SaveTimeWait > 10) SaveTimeWait = 0;
     else SaveTimeWait++;
+    useFootStore().mSaveDownTotalSpeedInfo(hasSpeed && humanSizeSpeed(hasSpeed) || '')
   }
 
   /**

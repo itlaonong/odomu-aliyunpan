@@ -1,4 +1,4 @@
-import { getCrxPath, getResourcesPath, getUserDataPath, mkAriaConf } from './mainfile'
+import { getCrxPath, getResourcesPath, getStaticPath, getUserDataPath, mkAriaConf } from './mainfile'
 import { release } from 'os'
 import { AppWindow, creatElectronWindow, createMainWindow, createTray, Referer, ShowError, ShowErrorAndExit, ua } from './window'
 import Electron from 'electron'
@@ -8,10 +8,10 @@ import { app, BrowserWindow, dialog, Menu, MenuItem, ipcMain, shell, session } f
 import { exec, spawn } from 'child_process'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 import path from 'path'
-
+import fixPath from 'fix-path'
 
 if (release().startsWith('6.1')) app.disableHardwareAcceleration()
-
+fixPath()
 process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true'
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
 process.on('unhandledRejection', (reason, p) => {
@@ -96,8 +96,8 @@ app.on('will-quit', () => {
 
 app.setAboutPanelOptions({
   applicationName: '阿里云盘小白羊版',
-  copyright: 'PingKuNet',
-  website: 'https://github.com/PingKuNet/aliyunpan',
+  copyright: 'Odomu',
+  website: 'https://github.com/odomu/aliyunpan',
   iconPath: getResourcesPath('app.png'),
   applicationVersion: '30'
 })
@@ -150,7 +150,8 @@ app
           ...(shouldToken && {
             Authorization: userToken.access_token
           }),
-          'X-Canary': 'client=web,app=adrive,version=v3.0.0',
+          'user-agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) aDrive/4.1.0 Chrome/108.0.5359.215 Electron/22.3.1 Safari/537.36',
+          'X-Canary': 'client=windows,app=adrive,version=v4.1.0',
           'Accept-Language': 'zh-CN,zh;q=0.9'
         }
       })
@@ -506,9 +507,9 @@ ipcMain.on('WebOpenUrl', (event, data) => {
 
 async function creatAria() {
   try {
-    let basePath = path.resolve(app.getAppPath(), '..')
-    // if (DEBUGGING) basePath = path.resolve(app.getAppPath(), '..')
-    if (DEBUGGING) basePath = app.getAppPath()
+    let basePath = getStaticPath('engine')
+    let confPath = path.join(basePath, 'aria2.conf')
+    if (!existsSync(confPath)) mkAriaConf(confPath)
     let ariaPath = ''
     if (process.platform === 'win32') {
       ariaPath = 'aria2c.exe'
@@ -517,38 +518,26 @@ async function creatAria() {
     } else if (process.platform === 'linux') {
       ariaPath = 'aria2c'
     }
+    basePath = path.join(basePath, DEBUGGING ? process.platform : '')
     let ariaPath2 = path.join(basePath, ariaPath)
     if (!existsSync(ariaPath2)) {
       ShowError('找不到Aria程序文件', ariaPath2)
       return 0
     }
 
-    let confPath = path.join(basePath, 'aria2.conf')
-    if (!existsSync(confPath)) mkAriaConf(confPath)
-
     process.chdir(basePath)
-    const options:SpawnOptions = { detached: true, stdio: 'ignore', cwd: basePath }
+    const options:SpawnOptions = { stdio: 'ignore', cwd: basePath, shell: true }
     const port = await portIsOccupied(16800)
     const subprocess = spawn(
       ariaPath,
       [
         '--stop-with-process=' + process.pid,
         '-D',
-        '--enable-rpc=true',
-        '--rpc-allow-origin-all=true',
-        '--rpc-listen-all=false',
-        '--rpc-listen-port=' + port,
-        '--rpc-secret=S4znWTaZYQi3cpRNb',
-        '--rpc-secure=false',
-        '--auto-file-renaming=false',
-        '--check-certificate=false',
-        '--async-dns=false',
-        '--conf-path=aria2.conf'
+        '--conf-path=' + confPath,
+        '--listen-port=' + port
       ],
       options
     )
-
-    // subprocess.unref()
     return port
   } catch (e: any) {
     console.log(e)

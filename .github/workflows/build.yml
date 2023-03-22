@@ -3,9 +3,7 @@ name: Build
 on:
   push:
     branches:
-      - master
-    tags:
-      - 'v*.*.*'
+      - main
 
 jobs:
   release:
@@ -16,7 +14,6 @@ jobs:
       fail-fast: false
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
-        node-version: [16]
 
     steps:
       - name: Checkout Git repository
@@ -25,7 +22,7 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v3
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 16
           registry-url: https://registry.npmjs.org/
 
       - name: Get yarn cache directory path
@@ -49,41 +46,31 @@ jobs:
             ${{ runner.os }}-${{ matrix.node-version }}-nodemodules-
 
       - name: Install Dependencies
-        run: yarn install
         if: |
           steps.cache-yarn-cache.outputs.cache-hit != 'true' ||
           steps.cache-node-modules.outputs.cache-hit != 'true'
+        run: |
+          npm install -g yarn
+          yarn install
 
       - name: Build Electron App
         run: yarn run build
         env:
-          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: upload artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ matrix.os }}
-          path: release/win-unpacked/resources/app.asar
-
-      - name: release
-        uses: softprops/action-gh-release@v0.1.14
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: "release/**"
-        env:
-          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
-
-      - name: Cleanup Artifacts for Windows
-        if: matrix.os == 'windows-latest'
+      - name: Cleanup Artifacts for Linux
+        if: matrix.os == 'ubuntu-latest'
         run: |
-          npx rimraf "release/!(*.exe)"
+          npx rimraf "release/!(*.AppImage)"
 
       - name: Cleanup Artifacts for MacOS
         if: matrix.os == 'macos-latest'
         run: |
           npx rimraf "release/!(*.dmg)"
 
-      - name: Cleanup Artifacts for Linux
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          npx rimraf "release/!(*.AppImage)"
+      - name: upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.os }}
+          path: |
+            release/**
