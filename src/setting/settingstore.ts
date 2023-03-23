@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import DebugLog from '../utils/debuglog'
-import { getResourcesPath } from '../utils/electronhelper'
+import { getResourcesPath, getUserDataPath } from '../utils/electronhelper'
 import { useAppStore } from '../store'
 import PanDAL from '../pan/pandal'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
@@ -161,10 +161,10 @@ const setting: SettingState = {
   uiTimeFolderIndex: 1,
   uiShareDays: 'always',
   uiSharePassword: 'random',
-  uiShareFormate: '「NAME」URL 提取码: PWD\n点击链接保存，或者复制本段内容，打开「阿里云盘」APP ，无需下载极速在线查看，视频原画倍速播放。',
+  uiShareFormate: '「NAME」URL\n提取码: PWD',
   uiXBTNumber: 36,
   uiXBTWidth: 960,
-  uiFileListOrder: 'updated_at desc',
+  uiFileListOrder: 'name asc',
   uiFileListMode: 'list',
   uiFileColorArray: [
     { key: '#df5659', title: '鹅冠红' },
@@ -299,7 +299,7 @@ let settingstr = ''
 
 function LoadSetting() {
   try {
-    const settingConfig = getResourcesPath('setting.config')
+    const settingConfig = getUserDataPath('setting.config')
     if (settingConfig && existsSync(settingConfig)) {
       settingstr = readFileSync(settingConfig, 'utf-8')
       const val = JSON.parse(settingstr)
@@ -348,7 +348,7 @@ function SaveSetting() {
   try {
     const saveStr = JSON.stringify(setting)
     if (saveStr != settingstr) {
-      const settingConfig = getResourcesPath('setting.config')
+      const settingConfig = getUserDataPath('setting.config')
       writeFileSync(settingConfig, saveStr, 'utf-8')
       settingstr = saveStr
     }
